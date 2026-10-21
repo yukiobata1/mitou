@@ -1,0 +1,135 @@
+{
+ "summary": {
+  "learned": {
+   "delivered": 700.0,
+   "avg_delivery": 37.120169562740045,
+   "p95_delivery": 51.6,
+   "blocked_steps": 4837.2
+  },
+  "no_toll": {
+   "delivered": 698.0,
+   "avg_delivery": 36.585468105933316,
+   "p95_delivery": 49.8,
+   "blocked_steps": 4917.8
+  },
+  "fixed_toll": {
+   "delivered": 612.4,
+   "avg_delivery": 37.616149976882824,
+   "p95_delivery": 52.209999999999994,
+   "blocked_steps": 13572.2
+  }
+ },
+ "runs": {
+  "learned": [
+   {
+    "delivered": 700,
+    "avg_delivery": 37.09428571428571,
+    "p95_delivery": 52.0,
+    "blocked_steps": 5464
+   },
+   {
+    "delivered": 687,
+    "avg_delivery": 37.1018922852984,
+    "p95_delivery": 51.0,
+    "blocked_steps": 4944
+   },
+   {
+    "delivered": 710,
+    "avg_delivery": 37.309859154929576,
+    "p95_delivery": 52.0,
+    "blocked_steps": 4397
+   },
+   {
+    "delivered": 713,
+    "avg_delivery": 37.32959326788219,
+    "p95_delivery": 52.0,
+    "blocked_steps": 4456
+   },
+   {
+    "delivered": 690,
+    "avg_delivery": 36.76521739130435,
+    "p95_delivery": 51.0,
+    "blocked_steps": 4925
+   }
+  ],
+  "no_toll": [
+   {
+    "delivered": 701,
+    "avg_delivery": 36.425106990014264,
+    "p95_delivery": 50.0,
+    "blocked_steps": 4945
+   },
+   {
+    "delivered": 684,
+    "avg_delivery": 36.46637426900585,
+    "p95_delivery": 50.0,
+    "blocked_steps": 4670
+   },
+   {
+    "delivered": 710,
+    "avg_delivery": 36.75070422535211,
+    "p95_delivery": 50.0,
+    "blocked_steps": 5203
+   },
+   {
+    "delivered": 709,
+    "avg_delivery": 36.97320169252468,
+    "p95_delivery": 50.0,
+    "blocked_steps": 4914
+   },
+   {
+    "delivered": 686,
+    "avg_delivery": 36.31195335276968,
+    "p95_delivery": 49.0,
+    "blocked_steps": 4857
+   }
+  ],
+  "fixed_toll": [
+   {
+    "delivered": 700,
+    "avg_delivery": 38.37571428571429,
+    "p95_delivery": 54.049999999999955,
+    "blocked_steps": 6767
+   },
+   {
+    "delivered": 255,
+    "avg_delivery": 38.79607843137255,
+    "p95_delivery": 53.0,
+    "blocked_steps": 45670
+   },
+   {
+    "delivered": 711,
+    "avg_delivery": 36.547116736990155,
+    "p95_delivery": 51.0,
+    "blocked_steps": 5151
+   },
+   {
+    "delivered": 710,
+    "avg_delivery": 37.03239436619718,
+    "p95_delivery": 51.0,
+    "blocked_steps": 5086
+   },
+   {
+    "delivered": 686,
+    "avg_delivery": 37.329446064139944,
+    "p95_delivery": 52.0,
+    "blocked_steps": 5187
+   }
+  ]
+ },
+ "args": {
+  "episodes": 300,
+  "vehicles": 60,
+  "bays": 6,
+  "rate": 0.6,
+  "episode_steps": 1200,
+  "reward": "externality",
+  "toll_init": 1.0,
+  "target_every": 10,
+  "lr": 0.0005,
+  "updates_per_episode": 60,
+  "eval_seeds": 5,
+  "seed": 0,
+  "out": "marl_poc/out_v2_60"
+ }
+}

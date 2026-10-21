@@ -1,0 +1,4 @@
+[submodule "experiments/ufast"]
+	path = experiments/ufast
+	url = https://github.com/DaeeunLim/ufast.git
+	ignore = untracked

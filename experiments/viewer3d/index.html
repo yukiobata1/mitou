@@ -1,0 +1,193 @@
+<title>OHT Fab Replay 3D</title>
+<meta name="description" content="半導体工場の天井搬送車（OHT）シミュレーションの3D再生。公開シミュレータU-FAST、実工場由来レイアウト（SMAT2022）、占有ログから描画。">
+<style>
+  :root {
+    --bg: #0e1116; --panel: rgba(20,24,31,0.86); --fg: #e6e8ec; --muted: #9aa3ad; --accent: #4cc2ff;
+    --ok: #3ddc84; --warn: #ffb020; --bad: #ff4d4f;
+  }
+  :root[data-theme="light"] { --bg: #f4f6f8; --panel: rgba(255,255,255,0.9); --fg: #14181d; --muted: #5b6570; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f4f6f8; --panel: rgba(255,255,255,0.9); --fg: #14181d; --muted: #5b6570; } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; }
+  #c { position: fixed; inset: 0; display: block; }
+  #ui { position: fixed; left: 16px; right: 16px; bottom: 16px; background: var(--panel); backdrop-filter: blur(6px); border-radius: 12px; padding: 12px 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
+  #hdr { position: fixed; left: 16px; top: 16px; background: var(--panel); border-radius: 12px; padding: 10px 14px; max-width: min(520px, calc(100vw - 32px)); font-size: 13px; line-height: 1.45; }
+  #hdr h1 { font-size: 15px; margin: 0 0 4px; }
+  #hdr p { margin: 0; color: var(--muted); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  button, select { background: #222833; color: var(--fg); border: 1px solid #3a4250; border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  :root[data-theme="light"] button, :root[data-theme="light"] select { background: #fff; border-color: #cfd6de; }
+  input[type=range] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+  #stats { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+</style>
+<canvas id="c"></canvas>
+<div id="hdr">
+  <h1>OHT Fab Replay 3D</h1>
+  <p>公開シミュレータU-FAST、実工場由来レイアウト（300 m × 150 m、装置群108、レール区間1,698）。天井レール上の搬送車（OHT）800台、需要30,000件/時。色は区間に留まっている時間（緑＝走行中、赤＝30秒以上停止）。マウスで回転・ズーム。</p>
+</div>
+<div id="ui">
+  <div class="row">
+    <button id="play">▶ 再生</button>
+    <select id="run"></select>
+    <select id="speed"><option value="1">1×</option><option value="4" selected>4×</option><option value="10">10×</option><option value="30">30×</option></select>
+    <input id="t" type="range" min="0" max="1" step="0.1" value="0">
+    <span id="stats"></span>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <span class="legend"><span><span class="sw" style="background:#3ddc84"></span>走行中</span><span><span class="sw" style="background:#ffb020"></span>減速・待ち</span><span><span class="sw" style="background:#ff4d4f"></span>停止 ≥ 30 s</span></span>
+    <button id="cam">カメラ: 俯瞰</button>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const S = 0.001;              // mm -> m
+const RAIL_H = 4.0;           // ceiling rail height [m]
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene();
+const dark = !matchMedia('(prefers-color-scheme: light)').matches;
+scene.background = new THREE.Color(dark ? 0x0e1116 : 0xf4f6f8);
+scene.fog = new THREE.Fog(scene.background, 400, 900);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.5, 2000);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444466, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+sun.position.set(120, 200, 80); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+scene.add(sun);
+
+const data = await (await fetch('scene.json')).json();
+const [minx, miny, maxx, maxy] = data.bbox;
+const cx = (minx + maxx) / 2 * S, cz = (miny + maxy) / 2 * S;
+const W = (maxx - minx) * S, D = (maxy - miny) * S;
+const toXZ = (x, y) => [x * S - cx, y * S - cz];
+
+// floor + tool rows (bays as pale slabs)
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(W + 40, D + 40),
+  new THREE.MeshStandardMaterial({ color: dark ? 0x1a1f27 : 0xe6eaef, roughness: 0.95 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const grid = new THREE.GridHelper(Math.max(W, D) + 40, 40, 0x334, 0x223);
+grid.material.opacity = 0.25; grid.material.transparent = true; scene.add(grid);
+
+// rails: instanced boxes per link (straight) — light grey beams under the ceiling
+const railMat = new THREE.MeshStandardMaterial({ color: 0xb9c0c8, metalness: 0.6, roughness: 0.35 });
+const railGeo = new THREE.BoxGeometry(1, 0.18, 0.28);
+const rails = new THREE.InstancedMesh(railGeo, railMat, data.links.length);
+const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+data.links.forEach((l, i) => {
+  const [x1, z1] = toXZ(l[0], l[1]), [x2, z2] = toXZ(l[2], l[3]);
+  const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz) || 0.01;
+  q.setFromAxisAngle(up, -Math.atan2(dz, dx));
+  m4.compose(new THREE.Vector3((x1 + x2) / 2, RAIL_H, (z1 + z2) / 2), q, new THREE.Vector3(len, 1, 1));
+  rails.setMatrixAt(i, m4);
+});
+rails.castShadow = true; scene.add(rails);
+// hangers every ~6 m along straight links
+const hangGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.2, 6);
+const hangMat = new THREE.MeshStandardMaterial({ color: 0x8a9099 });
+let hangers = [];
+data.links.forEach(l => { if (l[4] === 'LINE') { const [x1, z1] = toXZ(l[0], l[1]), [x2, z2] = toXZ(l[2], l[3]);
+  const n = Math.max(1, Math.floor(Math.hypot(x2 - x1, z2 - z1) / 6)); for (let k = 0; k <= n; k++) hangers.push([x1 + (x2 - x1) * k / n, z1 + (z2 - z1) * k / n]); } });
+const hang = new THREE.InstancedMesh(hangGeo, hangMat, hangers.length);
+hangers.forEach((h, i) => { m4.makeTranslation(h[0], RAIL_H + 0.7, h[1]); hang.setMatrixAt(i, m4); });
+scene.add(hang);
+
+// OHT vehicle: body (white box) + hoist frame + FOUP (grey) — one instanced mesh per part
+function makeInstanced(geo, mat, n) { const im = new THREE.InstancedMesh(geo, mat, n); im.castShadow = true; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); return im; }
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
+const glowMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x000000 });
+const foupMat = new THREE.MeshStandardMaterial({ color: 0x7c8590, roughness: 0.6 });
+
+// section polylines -> position along section by fraction
+const secPts = {}; for (const k in data.sections) secPts[k] = data.sections[k].map(p => toXZ(p[0], p[1]));
+function secPos(sec, f) {
+  const pts = secPts[sec]; if (!pts) return null;
+  if (pts.length === 1) return { x: pts[0][0], z: pts[0][1], a: 0 };
+  let L = 0; const cum = [0]; for (let i = 1; i < pts.length; i++) { L += Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1]); cum.push(L); }
+  const tgt = Math.min(1, Math.max(0, f)) * L;
+  let i = 1; while (i < cum.length - 1 && cum[i] < tgt) i++;
+  const seg = cum[i] - cum[i-1] || 1, u = (tgt - cum[i-1]) / seg;
+  const x = pts[i-1][0] + (pts[i][0] - pts[i-1][0]) * u, z = pts[i-1][1] + (pts[i][1] - pts[i-1][1]) * u;
+  return { x, z, a: -Math.atan2(pts[i][1] - pts[i-1][1], pts[i][0] - pts[i-1][0]) };
+}
+
+let run, body, frame, foup, tint, evByOht, T0 = data.t0, T1 = data.t1, t = T0, playing = false;
+const runSel = document.getElementById('run');
+data.runs.forEach((r, i) => { const o = document.createElement('option'); o.value = i; o.textContent = `${r.label} (OHT ${r.ohts.length})`; runSel.appendChild(o); });
+function loadRun(i) {
+  run = data.runs[i];
+  if (body) { scene.remove(body); scene.remove(frame); scene.remove(foup); }
+  const n = run.ohts.length;
+  body = makeInstanced(new THREE.BoxGeometry(1.6, 0.5, 0.9), bodyMat, n);
+  frame = makeInstanced(new THREE.BoxGeometry(1.2, 0.9, 0.08), new THREE.MeshStandardMaterial({ color: 0xd8dde3, metalness: 0.5 }), n);
+  foup = makeInstanced(new THREE.BoxGeometry(0.5, 0.45, 0.5), foupMat, n);
+  tint = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3); body.instanceColor = tint;
+  scene.add(body); scene.add(frame); scene.add(foup);
+  evByOht = run.ohts.map(() => []);
+  for (const e of run.events) evByOht[e[1]].push(e);   // sorted by t already
+}
+loadRun(0);
+runSel.onchange = () => { loadRun(+runSel.value); draw(); };
+
+const c = new THREE.Color();
+function draw() {
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < run.ohts.length; i++) {
+    const ev = evByOht[i];
+    // last event with time <= t (binary search)
+    let lo = 0, hi = ev.length - 1, k = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (ev[mid][0] <= t) { k = mid; lo = mid + 1; } else hi = mid - 1; }
+    if (k < 0) { dummy.position.set(0, -50, 0); dummy.updateMatrix(); body.setMatrixAt(i, dummy.matrix); frame.setMatrixAt(i, dummy.matrix); foup.setMatrixAt(i, dummy.matrix); continue; }
+    const [te, , sec] = ev[k];
+    const tnext = k + 1 < ev.length ? ev[k+1][0] : te + 30;
+    const dwell = t - te;
+    const f = Math.min(1, dwell / Math.max(1, tnext - te));   // progress along section
+    const p = secPos(String(sec), f); if (!p) continue;
+    dummy.position.set(p.x, RAIL_H - 0.45, p.z); dummy.rotation.set(0, p.a, 0); dummy.updateMatrix();
+    body.setMatrixAt(i, dummy.matrix);
+    dummy.position.y = RAIL_H - 1.15; dummy.updateMatrix(); frame.setMatrixAt(i, dummy.matrix);
+    dummy.position.y = RAIL_H - 1.55; dummy.updateMatrix(); foup.setMatrixAt(i, dummy.matrix);
+    const s = Math.min(1, dwell / 30);   // 0 moving .. 1 stuck
+    c.setRGB(0.24 + 0.76 * s, 0.86 - 0.56 * s, 0.52 - 0.21 * s);
+    tint.setXYZ(i, c.r, c.g, c.b);
+  }
+  body.instanceMatrix.needsUpdate = true; frame.instanceMatrix.needsUpdate = true; foup.instanceMatrix.needsUpdate = true; tint.needsUpdate = true;
+  let stuck = 0; for (let i = 0; i < run.ohts.length; i++) { const ev = evByOht[i]; let lo = 0, hi = ev.length - 1, k = -1; while (lo <= hi) { const mid = (lo + hi) >> 1; if (ev[mid][0] <= t) { k = mid; lo = mid + 1; } else hi = mid - 1; } if (k >= 0 && t - ev[k][0] >= 30) stuck++; }
+  document.getElementById('stats').textContent = `t = ${t.toFixed(0)} s   停止中 ${stuck} / ${run.ohts.length} 台`;
+  document.getElementById('t').value = ((t - T0) / (T1 - T0)).toFixed(3);
+}
+
+// camera presets
+const views = [
+  { name: '俯瞰', pos: [0, 330, 230], tgt: [0, 0, -10] },
+  { name: '斜め', pos: [-W * 0.55, 60, D * 0.9], tgt: [0, 4, 0] },
+  { name: '本線', pos: [-40, 9, 30], tgt: [20, 3.5, -5] },
+];
+let vi = 0;
+function setView(i) { const v = views[i]; camera.position.set(...v.pos); controls.target.set(...v.tgt); document.getElementById('cam').textContent = 'カメラ: ' + v.name; }
+setView(0);
+document.getElementById('cam').onclick = () => { vi = (vi + 1) % views.length; setView(vi); };
+
+document.getElementById('play').onclick = () => { playing = !playing; document.getElementById('play').textContent = playing ? '❚❚ 停止' : '▶ 再生'; };
+document.getElementById('t').oninput = e => { t = T0 + (T1 - T0) * +e.target.value; draw(); };
+let last = performance.now();
+function loop(now) {
+  const dt = (now - last) / 1000; last = now;
+  if (playing) { t += dt * +document.getElementById('speed').value; if (t > T1) t = T0; draw(); }
+  controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop);
+}
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize(); draw(); requestAnimationFrame(loop);
+</script>

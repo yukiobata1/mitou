@@ -1,0 +1,30 @@
+.env
+.env.*
+!.env.example
+
+# Local environments and caches
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Temporary document work and local logs
+/tmp/
+/.tmp-*/
+*.log
+~$*
+*.tmp
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -1,0 +1,296 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-08-14",
+  "official_pm_page": "https://www.ipa.go.jp/jinzai/mitou/advanced/2026second/pm.html",
+  "notes": [
+    "verified は、本人プロフィールの所属・公式サイトからの参照・複数の一致情報で本人性を確認したもの。",
+    "affiliated は本人の所属組織または研究室の発信。個人SNSとは区別する。",
+    "historical_unavailable は本人への外部リンクを確認できたが、2026-08-14時点で投稿本文を取得できないもの。",
+    "manual は公式APIで第三者個人の投稿を継続取得できないため、自動取得しない。"
+  ],
+  "people": [
+    {
+      "slug": "ikuo-takeuchi",
+      "name": "竹内郁雄",
+      "role": "統括PM",
+      "sources": [
+        {
+          "platform": "linkedin",
+          "kind": "manual",
+          "url": "https://www.linkedin.com/in/ikuo-takeuchi-4b145694/",
+          "identity": "verified",
+          "status": "profile_visible_no_recent_posts_confirmed"
+        },
+        {
+          "platform": "note",
+          "kind": "manual",
+          "url": "https://note.com/ipsj/n/n1036cbfab26e",
+          "identity": "attributed_article",
+          "status": "published_2025-02-17"
+        }
+      ]
+    },
+    {
+      "slug": "takeshi-natsuno",
+      "name": "夏野剛",
+      "role": "統括PM",
+      "sources": [
+        {
+          "platform": "x",
+          "kind": "x_api",
+          "handle": "tnatsu",
+          "url": "https://x.com/tnatsu",
+          "identity": "verified",
+          "status": "active_or_intermittent"
+        },
+        {
+          "platform": "linkedin",
+          "kind": "manual",
+          "url": "https://www.linkedin.com/in/takeshi-natsuno-ab3778342/",
+          "identity": "verified",
+          "status": "profile_visible"
+        },
+        {
+          "platform": "facebook",
+          "kind": "manual",
+          "url": "https://www.facebook.com/tnatsu",
+          "identity": "verified",
+          "status": "profile_visible_posts_login_gated"
+        },
+        {
+          "platform": "niconico",
+          "kind": "manual",
+          "url": "https://ch.nicovideo.jp/natsuno",
+          "identity": "verified",
+          "status": "official_channel"
+        }
+      ]
+    },
+    {
+      "slug": "hiroshi-ishiguro",
+      "name": "石黒浩",
+      "role": "PM",
+      "sources": [
+        {
+          "platform": "x",
+          "kind": "x_api",
+          "handle": "hiroshiishiguro",
+          "url": "https://x.com/hiroshiishiguro",
+          "identity": "verified",
+          "status": "active_or_intermittent"
+        },
+        {
+          "platform": "linkedin",
+          "kind": "manual",
+          "url": "https://www.linkedin.com/in/hiroshi-ishiguro-7b30072b/",
+          "identity": "verified",
+          "status": "profile_visible_no_recent_posts_confirmed"
+        },
+        {
+          "platform": "note",
+          "kind": "rss",
+          "url": "https://note.com/avita/rss",
+          "profile_url": "https://note.com/avita",
+          "identity": "affiliated",
+          "include_terms": ["石黒", "Ishiguro"],
+          "status": "organization_feed_filter_required"
+        }
+      ]
+    },
+    {
+      "slug": "shigeru-urushibara",
+      "name": "漆原茂",
+      "role": "PM",
+      "sources": [
+        {
+          "platform": "x",
+          "kind": "x_api",
+          "handle": "urucrunch",
+          "url": "https://x.com/urucrunch",
+          "identity": "verified",
+          "status": "active"
+        },
+        {
+          "platform": "linkedin",
+          "kind": "manual",
+          "url": "https://www.linkedin.com/in/shigeru-urushibara/",
+          "identity": "verified",
+          "status": "active_but_api_restricted"
+        },
+        {
+          "platform": "facebook",
+          "kind": "manual",
+          "url": "https://www.facebook.com/shigeru.urushibara",
+          "identity": "verified",
+          "status": "public_profile_partial_posts_login_gated"
+        }
+      ]
+    },
+    {
+      "slug": "mami-kajita",
+      "name": "梶田真実",
+      "role": "PM",
+      "sources": [
+        {
+          "platform": "linkedin",
+          "kind": "manual",
+          "url": "https://www.linkedin.com/in/mamikajita/",
+          "identity": "verified",
+          "status": "profile_visible_no_recent_posts_confirmed"
+        },
+        {
+          "platform": "wantedly",
+          "kind": "manual",
+          "url": "https://www.wantedly.com/id/mami_kajita",
+          "identity": "verified",
+          "status": "profile_visible_no_stories_confirmed"
+        },
+        {
+          "platform": "facebook",
+          "kind": "manual",
+          "url": "https://www.facebook.com/mami.kajitapp/",
+          "identity": "historical_unavailable",
+          "status": "unavailable_2026-08-14"
+        }
+      ]
+    },
+    {
+      "slug": "kazuyuki-shudo",
+      "name": "首藤一幸",
+      "role": "PM",
+      "sources": [
+        {
+          "platform": "x",
+          "kind": "x_api",
+          "handle": "shudo",
+          "url": "https://x.com/shudo",
+          "identity": "verified",
+          "status": "active"
+        },
+        {
+          "platform": "linkedin",
+          "kind": "manual",
+          "url": "https://www.linkedin.com/in/shudo/",
+          "identity": "verified",
+          "status": "profile_visible_no_recent_posts_confirmed"
+        },
+        {
+          "platform": "github",
+          "kind": "github_events",
+          "handle": "shudo",
+          "url": "https://github.com/shudo",
+          "identity": "verified",
+          "status": "public_events_api_available"
+        },
+        {
+          "platform": "facebook",
+          "kind": "manual",
+          "url": "https://www.facebook.com/shudolab",
+          "identity": "affiliated",
+          "status": "lab_account_not_personal"
+        }
+      ]
+    },
+    {
+      "slug": "tatsuya-harada",
+      "name": "原田達也",
+      "role": "PM",
+      "sources": [
+        {
+          "platform": "lab_blog",
+          "kind": "web_hash",
+          "url": "https://www.mi.t.u-tokyo.ac.jp/harada/",
+          "identity": "affiliated",
+          "status": "official_lab_site"
+        },
+        {
+          "platform": "lab_blog",
+          "kind": "manual",
+          "url": "https://www.mi.t.u-tokyo.ac.jp/blog/research/statement/",
+          "identity": "attributed_article",
+          "status": "published_2023-01-20"
+        }
+      ]
+    },
+    {
+      "slug": "yutaka-hirano",
+      "name": "平野豊",
+      "role": "PM",
+      "sources": [
+        {
+          "platform": "linkedin",
+          "kind": "manual",
+          "url": "https://www.linkedin.com/in/yutaka-hirano-6617451b7/",
+          "identity": "verified",
+          "status": "profile_visible_no_recent_posts_confirmed"
+        }
+      ]
+    },
+    {
+      "slug": "akihito-fujii",
+      "name": "藤井彰人",
+      "role": "PM",
+      "sources": [
+        {
+          "platform": "linkedin",
+          "kind": "manual",
+          "url": "https://www.linkedin.com/in/akihitofujii/",
+          "identity": "verified",
+          "status": "profile_visible_sparse_self_authored_posts"
+        }
+      ]
+    },
+    {
+      "slug": "hirofumi-miki",
+      "name": "三木寛文",
+      "role": "PM",
+      "sources": [
+        {
+          "platform": "wantedly",
+          "kind": "manual",
+          "url": "https://www.wantedly.com/id/hirofumi_miki",
+          "identity": "verified",
+          "status": "profile_visible_no_stories_confirmed"
+        },
+        {
+          "platform": "professional_profile",
+          "kind": "manual",
+          "url": "https://portal.mirai-cross.ventures/advisory/hirofumimiki/",
+          "identity": "verified",
+          "status": "owned_profile_not_sns_dynamic_page"
+        }
+      ]
+    },
+    {
+      "slug": "wataru-yoshizaki",
+      "name": "吉崎航",
+      "role": "PM",
+      "sources": [
+        {
+          "platform": "x",
+          "kind": "x_api",
+          "handle": "W_Yoshizaki",
+          "url": "https://x.com/W_Yoshizaki",
+          "identity": "verified",
+          "status": "active"
+        },
+        {
+          "platform": "facebook",
+          "kind": "manual",
+          "url": "https://www.facebook.com/wataru.yoshizaki",
+          "identity": "historical_unavailable",
+          "status": "unavailable_2026-08-14"
+        },
+        {
+          "platform": "note",
+          "kind": "rss",
+          "url": "https://note.com/asratec/rss",
+          "profile_url": "https://note.com/asratec",
+          "identity": "affiliated",
+          "include_terms": ["吉崎", "Yoshizaki", "V-Sido", "V‐Sido"],
+          "status": "organization_feed_filter_required"
+        }
+      ]
+    }
+  ]
+}

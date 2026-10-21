@@ -1,0 +1,279 @@
+<title>OHT Bay Close-up</title>
+<meta charset="utf-8">
+<meta name="description" content="半導体工場の天井搬送車（OHT）の近接3Dビュー。中央幹線と数本のベイを切り出し、OHT・ホイスト・FOUP・装置を部品まで描画。シミュレーションの占有ログで動く。">
+<style>
+  :root {
+    --bg: #eef1f5; --panel: rgba(255,255,255,0.88); --fg: #14181d; --muted: #5b6570; --accent: #2f7de1;
+    --ok: #35c46b; --warn: #f0a92b; --bad: #e5484d;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0f1216; --panel: rgba(22,26,32,0.88); --fg: #e8eaee; --muted: #9aa3ad; } }
+  :root[data-theme="dark"] { --bg: #0f1216; --panel: rgba(22,26,32,0.88); --fg: #e8eaee; --muted: #9aa3ad; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; }
+  #c { position: fixed; inset: 0; display: block; }
+  .panel { position: fixed; background: var(--panel); backdrop-filter: blur(8px); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.25); }
+  #hdr { left: 16px; top: 16px; padding: 10px 14px; max-width: min(460px, calc(100vw - 32px)); font-size: 13px; line-height: 1.45; }
+  #hdr h1 { font-size: 15px; margin: 0 0 4px; }
+  #hdr p { margin: 0; color: var(--muted); }
+  #ui { left: 16px; right: 16px; bottom: 16px; padding: 12px 16px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button, select { background: var(--panel); color: var(--fg); border: 1px solid rgba(128,128,128,0.35); border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  input[type=range] { flex: 1; min-width: 140px; accent-color: var(--accent); }
+  #stats { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .panel { display: none !important; }
+</style>
+<canvas id="c"></canvas>
+<div id="hdr" class="panel">
+  <h1>OHT Bay Close-up</h1>
+  <p>実工場由来レイアウトの中央幹線と数本のベイ（約40 m × 40 m）を切り出した近接ビュー。天井レールを走るOHTがFOUP（ウェハ25枚入りの容器）をホイストで吊って運ぶ。車体の状態灯は区間に留まっている時間（緑 走行、橙 待ち、赤 30秒以上停止）。</p>
+</div>
+<div id="ui" class="panel">
+  <div class="row">
+    <button id="play">▶ 再生</button>
+    <select id="run"></select>
+    <select id="speed"><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+    <input id="t" type="range" min="0" max="1" step="0.1" value="0">
+    <span id="stats"></span>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <span class="legend"><span><span class="sw" style="background:#35c46b"></span>走行</span><span><span class="sw" style="background:#f0a92b"></span>待ち</span><span><span class="sw" style="background:#e5484d"></span>停止 ≥ 30 s</span></span>
+    <span style="flex:1"></span>
+    <button id="v0">レール沿い</button><button id="v1">合流を見下ろす</button><button id="v2" class="on">1台を追従</button>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const S = 0.001, RAIL_H = 4.2;
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdfe5ec);
+scene.fog = new THREE.Fog(0xdfe5ec, 60, 140);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 400);
+const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.49;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a94a3, 0.55));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(18, 40, 12); sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096); sun.shadow.camera.left = -40; sun.shadow.camera.right = 40;
+sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40; sun.shadow.camera.far = 120; sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const data = await (await fetch('scene-closeup.json')).json();
+const [minx, miny, maxx, maxy] = data.bbox;
+const cx = (minx + maxx) / 2 * S, cz = (miny + maxy) / 2 * S;
+const W = (maxx - minx) * S, D = (maxy - miny) * S;
+const toXZ = (x, y) => [x * S - cx, y * S - cz];
+
+// ── floor: raised-floor tiles + ceiling with light panels ────────────────
+const tile = new THREE.TextureLoader();
+const floorMat = new THREE.MeshStandardMaterial({ color: 0xcfd5dc, roughness: 0.85, metalness: 0.05 });
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(W + 30, D + 30), floorMat);
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const grid = new THREE.GridHelper(Math.max(W, D) + 30, Math.round((Math.max(W, D) + 30) / 0.6), 0xb8c0c9, 0xc4cbd3);
+grid.position.y = 0.005; grid.material.opacity = 0.5; grid.material.transparent = true; scene.add(grid);
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W + 30, D + 30), new THREE.MeshStandardMaterial({ color: 0xf2f4f7, roughness: 1, side: THREE.BackSide }));
+ceil.rotation.x = -Math.PI / 2; ceil.position.y = RAIL_H + 1.6; scene.add(ceil);
+const lampGeo = new THREE.BoxGeometry(1.2, 0.05, 0.6);
+const lampMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.2 });
+const lamps = new THREE.InstancedMesh(lampGeo, lampMat, Math.ceil((W + 30) / 3) * Math.ceil((D + 30) / 3));
+{ let i = 0; const m = new THREE.Matrix4();
+  for (let x = -W / 2 - 15; x < W / 2 + 15; x += 3) for (let z = -D / 2 - 15; z < D / 2 + 15; z += 3) { m.makeTranslation(x, RAIL_H + 1.57, z); lamps.setMatrixAt(i++, m); }
+  lamps.count = i; scene.add(lamps); }
+
+// ── rails: C-channel beam (two flanges) + hangers ────────────────────────
+const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v3 = new THREE.Vector3();
+const railMat = new THREE.MeshStandardMaterial({ color: 0xc9ced4, metalness: 0.85, roughness: 0.3 });
+const flangeTop = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.06, 0.34), railMat, data.links.length);
+const web = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.22, 0.06), railMat, data.links.length * 2);
+const flangeBot = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.06, 0.34), railMat, data.links.length);
+data.links.forEach((l, i) => {
+  const [x1, z1] = toXZ(l[0], l[1]), [x2, z2] = toXZ(l[2], l[3]);
+  const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz) || 0.01;
+  q.setFromAxisAngle(up, -Math.atan2(dz, dx));
+  const mid = new THREE.Vector3((x1 + x2) / 2, 0, (z1 + z2) / 2);
+  m4.compose(mid.clone().setY(RAIL_H + 0.14), q, new THREE.Vector3(len, 1, 1)); flangeTop.setMatrixAt(i, m4);
+  m4.compose(mid.clone().setY(RAIL_H - 0.14), q, new THREE.Vector3(len, 1, 1)); flangeBot.setMatrixAt(i, m4);
+  const side = new THREE.Vector3(-dz / len, 0, dx / len).multiplyScalar(0.14);
+  m4.compose(mid.clone().add(side).setY(RAIL_H), q, new THREE.Vector3(len, 1, 1)); web.setMatrixAt(2 * i, m4);
+  m4.compose(mid.clone().sub(side).setY(RAIL_H), q, new THREE.Vector3(len, 1, 1)); web.setMatrixAt(2 * i + 1, m4);
+});
+for (const m of [flangeTop, web, flangeBot]) { m.castShadow = true; scene.add(m); }
+const hangPts = [];
+data.links.forEach(l => { const [x1, z1] = toXZ(l[0], l[1]), [x2, z2] = toXZ(l[2], l[3]);
+  const n = Math.max(1, Math.round(Math.hypot(x2 - x1, z2 - z1) / 4)); for (let k = 0; k < n; k++) hangPts.push([x1 + (x2 - x1) * (k + 0.5) / n, z1 + (z2 - z1) * (k + 0.5) / n]); });
+const hang = new THREE.InstancedMesh(new THREE.BoxGeometry(0.035, 1.4, 0.035), new THREE.MeshStandardMaterial({ color: 0xa9b0b8, metalness: 0.7, roughness: 0.4 }), hangPts.length);
+hangPts.forEach((h, i) => { m4.makeTranslation(h[0], RAIL_H + 0.9, h[1]); hang.setMatrixAt(i, m4); }); scene.add(hang);
+
+// ── tools along the bays: cabinets with a load port under the rail ──────
+const toolMat = new THREE.MeshStandardMaterial({ color: 0xe9ecef, roughness: 0.6, metalness: 0.1 });
+const trimMat = new THREE.MeshStandardMaterial({ color: 0x5c6b7d, roughness: 0.5, metalness: 0.4 });
+const portMat = new THREE.MeshStandardMaterial({ color: 0xb4bcc6, roughness: 0.4, metalness: 0.6 });
+const toolPos = [];
+data.links.forEach(l => {
+  const [x1, z1] = toXZ(l[0], l[1]), [x2, z2] = toXZ(l[2], l[3]);
+  if (Math.abs(z2 - z1) < Math.abs(x2 - x1)) return;            // bays run along z; skip interbay links
+  const n = Math.max(1, Math.round(Math.abs(z2 - z1) / 3.2));
+  for (let k = 0; k < n; k++) toolPos.push([x1 + (x2 - x1) * (k + 0.5) / n + 2.1, z1 + (z2 - z1) * (k + 0.5) / n]);
+});
+const cab = new THREE.InstancedMesh(new RoundedBoxGeometry(2.2, 2.3, 2.6, 2, 0.06), toolMat, toolPos.length);
+const trim = new THREE.InstancedMesh(new THREE.BoxGeometry(2.24, 0.12, 2.64), trimMat, toolPos.length);
+const port = new THREE.InstancedMesh(new THREE.BoxGeometry(0.55, 0.12, 0.55), portMat, toolPos.length);
+toolPos.forEach((p, i) => { m4.makeTranslation(p[0], 1.15, p[1]); cab.setMatrixAt(i, m4); m4.makeTranslation(p[0], 2.36, p[1]); trim.setMatrixAt(i, m4);
+  m4.makeTranslation(p[0] - 1.5, 0.95, p[1]); port.setMatrixAt(i, m4); });
+for (const m of [cab, trim, port]) { m.castShadow = true; m.receiveShadow = true; scene.add(m); }
+
+// ── OHT model parts (instanced) ─────────────────────────────────────────
+function inst(geo, mat, n) { const im = new THREE.InstancedMesh(geo, mat, n); im.castShadow = true; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); return im; }
+const bodyMat = new THREE.MeshPhysicalMaterial({ color: 0xf7f8fa, roughness: 0.28, metalness: 0.05, clearcoat: 0.8, clearcoatRoughness: 0.2 });
+const darkMat = new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: 0.6, metalness: 0.3 });
+const blueMat = new THREE.MeshStandardMaterial({ color: 0x2f5aa8, roughness: 0.45, metalness: 0.2 });
+const beltMat = new THREE.MeshStandardMaterial({ color: 0x1c1f24, roughness: 0.9 });
+const foupMat = new THREE.MeshPhysicalMaterial({ color: 0x8fa3bd, roughness: 0.25, metalness: 0.0, clearcoat: 0.6, transparent: true, opacity: 0.92 });
+const lidMat = new THREE.MeshStandardMaterial({ color: 0x3c4a5c, roughness: 0.5 });
+const lampOn = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1 });
+
+let run, evByOht, parts, tint, T0 = data.t0, T1 = data.t1, t = T0, playing = false, follow = -1, viewMode = 0;
+const runSel = document.getElementById('run');
+data.runs.forEach((r, i) => { const o = document.createElement('option'); o.value = i; o.textContent = `${r.label}`; runSel.appendChild(o); });
+function loadRun(i) {
+  run = data.runs[i];
+  if (parts) parts.forEach(p => scene.remove(p));
+  const n = run.ohts.length;
+  parts = [
+    inst(new THREE.BoxGeometry(1.1, 0.22, 0.26), darkMat, n),                       // bogie on rail
+    inst(new RoundedBoxGeometry(1.75, 0.62, 0.95, 3, 0.08), bodyMat, n),             // body shell
+    inst(new THREE.BoxGeometry(1.78, 0.08, 0.98), blueMat, n),                       // blue belt line
+    inst(new THREE.BoxGeometry(0.28, 0.05, 0.12), lampOn, n),                        // status lamp (tinted)
+    inst(new THREE.CylinderGeometry(0.012, 0.012, 0.3, 6), beltMat, n),              // hoist belt L (retracted while travelling)
+    inst(new THREE.CylinderGeometry(0.012, 0.012, 0.3, 6), beltMat, n),              // hoist belt R
+    inst(new THREE.BoxGeometry(0.62, 0.08, 0.4), darkMat, n),                        // gripper plate
+    inst(new RoundedBoxGeometry(0.44, 0.42, 0.44, 3, 0.04), foupMat, n),             // FOUP body
+    inst(new THREE.BoxGeometry(0.46, 0.05, 0.46), lidMat, n),                        // FOUP top plate
+    inst(new THREE.BoxGeometry(0.3, 0.04, 0.05), darkMat, n),                        // FOUP handle
+  ];
+  tint = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3); parts[3].instanceColor = tint;
+  parts.forEach(p => scene.add(p));
+  evByOht = run.ohts.map(() => []);
+  for (const e of run.events) evByOht[e[1]].push(e);
+  follow = -1;
+}
+const defaultRun = Math.min(1, data.runs.length - 1);   // dynamic routing first: vehicles actually move
+loadRun(defaultRun); runSel.value = String(defaultRun);
+runSel.onchange = () => { loadRun(+runSel.value); setView(viewMode); draw(); };
+
+const secPts = {}; for (const k in data.sections) secPts[k] = data.sections[k].map(p => toXZ(p[0], p[1]));
+function secPos(sec, f) {
+  const pts = secPts[sec]; if (!pts) return null;
+  if (pts.length === 1) return { x: pts[0][0], z: pts[0][1], a: 0 };
+  const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i-1] + Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1]));
+  const tgt = Math.min(1, Math.max(0, f)) * cum[cum.length - 1];
+  let i = 1; while (i < cum.length - 1 && cum[i] < tgt) i++;
+  const seg = cum[i] - cum[i-1] || 1, u = (tgt - cum[i-1]) / seg;
+  return { x: pts[i-1][0] + (pts[i][0] - pts[i-1][0]) * u, z: pts[i-1][1] + (pts[i][1] - pts[i-1][1]) * u, a: -Math.atan2(pts[i][1] - pts[i-1][1], pts[i][0] - pts[i-1][0]) };
+}
+function stateAt(i) {
+  const ev = evByOht[i]; let lo = 0, hi = ev.length - 1, k = -1;
+  while (lo <= hi) { const mid = (lo + hi) >> 1; if (ev[mid][0] <= t) { k = mid; lo = mid + 1; } else hi = mid - 1; }
+  if (k < 0) return null;
+  const [te, , sec] = ev[k]; if (sec < 0) return null;
+  const tnext = k + 1 < ev.length ? ev[k+1][0] : te + 30;
+  const p = secPos(String(sec), Math.min(1, (t - te) / Math.max(1, tnext - te))); if (!p) return null;
+  return { ...p, dwell: t - te };
+}
+const c = new THREE.Color(), dummy = new THREE.Object3D(), hidden = new THREE.Matrix4().makeTranslation(0, -100, 0);
+function setPart(pi, i, x, y, z, a, sy) { dummy.position.set(x, y, z); dummy.rotation.set(0, a, 0); dummy.scale.set(1, sy || 1, 1); dummy.updateMatrix(); parts[pi].setMatrixAt(i, dummy.matrix); }
+function draw() {
+  let visible = 0, stuck = 0, followPos = null;
+  for (let i = 0; i < run.ohts.length; i++) {
+    const s = stateAt(i);
+    if (!s) { parts.forEach(p => p.setMatrixAt(i, hidden)); continue; }
+    visible++; if (s.dwell >= 30) stuck++;
+    const { x, z, a } = s;
+    setPart(0, i, x, RAIL_H, z, a);
+    setPart(1, i, x, RAIL_H - 0.55, z, a);
+    setPart(2, i, x, RAIL_H - 0.72, z, a);
+    // lamp on the side of the body
+    const sx = Math.sin(a) * 0.49, sz = Math.cos(a) * 0.49;
+    setPart(3, i, x + sx, RAIL_H - 0.45, z + sz, a);
+    const bx = Math.cos(a) * 0.22, bz = -Math.sin(a) * 0.22;
+    setPart(4, i, x + bx, RAIL_H - 0.98, z + bz, a); setPart(5, i, x - bx, RAIL_H - 0.98, z - bz, a);
+    setPart(6, i, x, RAIL_H - 1.14, z, a);      // gripper plate just under the body
+    setPart(7, i, x, RAIL_H - 1.42, z, a);      // FOUP held under the body while travelling
+    setPart(8, i, x, RAIL_H - 1.19, z, a);
+    setPart(9, i, x, RAIL_H - 1.15, z, a);
+    const k = Math.min(1, s.dwell / 30);
+    c.setRGB(0.2 + 0.7 * k, 0.77 - 0.5 * k, 0.42 - 0.12 * k); tint.setXYZ(i, c.r, c.g, c.b);
+    if (i === follow) followPos = s;
+  }
+  parts.forEach(p => { p.instanceMatrix.needsUpdate = true; }); tint.needsUpdate = true;
+  document.getElementById('stats').textContent = `t = ${t.toFixed(0)} s   表示 ${visible} 台   停止中 ${stuck} 台`;
+  document.getElementById('t').value = ((t - T0) / (T1 - T0)).toFixed(3);
+  if (viewMode === 2 && followPos) {
+    const back = new THREE.Vector3(-Math.cos(followPos.a) * 4.5 + Math.sin(followPos.a) * 1.2, 0.9, Math.sin(followPos.a) * 4.5 + Math.cos(followPos.a) * 1.2);
+    camera.position.lerp(new THREE.Vector3(followPos.x, RAIL_H, followPos.z).add(back), 0.08);
+    controls.target.lerp(new THREE.Vector3(followPos.x, RAIL_H - 1.1, followPos.z), 0.15);
+  }
+}
+function pickFollow() { // vehicle nearest the region centre that is visible now
+  let best = -1, bd = 1e9;
+  for (let i = 0; i < run.ohts.length; i++) { const s = stateAt(i); if (!s) continue; const d = Math.hypot(s.x, s.z); if (d < bd) { bd = d; best = i; } }
+  return best;
+}
+// anchor the fixed views on the busiest section of the current run (most section entries)
+function busiest() {
+  const cnt = {}; for (const e of run.events) if (e[2] >= 0) cnt[e[2]] = (cnt[e[2]] || 0) + 1;
+  let best = null, bc = -1; for (const k in cnt) if (cnt[k] > bc) { bc = cnt[k]; best = k; }
+  const pts = secPts[best] || [[0, 0], [1, 0]];
+  const p0 = pts[0], p1 = pts[pts.length - 1];
+  const a = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+  return { x: (p0[0] + p1[0]) / 2, z: (p0[1] + p1[1]) / 2, dx: Math.cos(a), dz: Math.sin(a) };
+}
+const views = [
+  // ride along the rail: camera on the rail axis, just above it, looking down the line
+  () => { const b = busiest(); camera.position.set(b.x - b.dx * 9, RAIL_H + 1.1, b.z - b.dz * 9); controls.target.set(b.x + b.dx * 10, RAIL_H - 1.4, b.z + b.dz * 10); },
+  // oblique from above the merge
+  () => { const b = busiest(); camera.position.set(b.x - b.dx * 8 + b.dz * 7, RAIL_H + 5.5, b.z - b.dz * 8 - b.dx * 7); controls.target.set(b.x + b.dx * 3, RAIL_H - 1.2, b.z + b.dz * 3); },
+  () => { follow = pickFollow(); },
+];
+function setView(i) { viewMode = i; views[i](); ['v0','v1','v2'].forEach((id, k) => document.getElementById(id).classList.toggle('on', k === i)); }
+['v0','v1','v2'].forEach((id, k) => document.getElementById(id).onclick = () => setView(k));
+setView(2); playing = true; document.getElementById('play').textContent = '❚❚ 停止';   // open on a moving vehicle
+
+document.getElementById('play').onclick = () => { playing = !playing; document.getElementById('play').textContent = playing ? '❚❚ 停止' : '▶ 再生'; };
+document.getElementById('t').oninput = e => { t = T0 + (T1 - T0) * +e.target.value; draw(); };
+let last = performance.now();
+function loop(now) {
+  const dt = (now - last) / 1000; last = now;
+  if (playing) { t += dt * +document.getElementById('speed').value; if (t > T1) t = T0; draw(); }
+  else if (viewMode === 2) draw();
+  controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop);
+}
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize(); draw();
+window.renderInfo = () => { const b = busiest(); return { b, W, D, links: data.links.map(l => [...toXZ(l[0], l[1]), ...toXZ(l[2], l[3])]) }; };
+window.renderAt = (tt, cam) => {
+  t = tt; viewMode = -1; draw();
+  camera.fov = cam.fov || 50; camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  camera.position.set(cam.px, cam.py, cam.pz); camera.lookAt(cam.tx, cam.ty, cam.tz);
+  renderer.render(scene, camera); return true;
+};
+window.__ready = true;
+
+</script>
